@@ -5,17 +5,20 @@ I made this to convert telnet to APIs by Ruby Grape.
 ## Installation
 First, clone it from github.
 
-   git clone https://github.com/c910335/Graptt.git
-   cd Graptt
+    git clone https://github.com/c910335/Graptt.git
+    cd Graptt
 Second, install the dependencies with bundler.
 
-   bundle install
+    bundle install
 Third, copy the config file and edit it.
 
-   cp config/settings.sample.rb config/settings.rb
-   vim config/settings.rb
+    cp config/settings.sample.rb config/settings.rb
+    vim config/settings.rb
 Last, rackup!
 
-   rackup
+    rackup
+Also, you can try test.rb first.
+
+    ruby test.rb
 ## License
 MIT License.
