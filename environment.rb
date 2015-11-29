@@ -1,0 +1,8 @@
+require 'rubygems'
+require 'bundler/setup'
+require 'net/telnet'
+require 'securerandom'
+require 'rack/cors'
+require 'grape'
+require 'grape-swagger'
+require './config/settings'
