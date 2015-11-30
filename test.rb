@@ -1,32 +1,36 @@
 require './app/models/ptt'
 
-while true
-   ptt = PTT.new
-   if ptt.connect! == PTT::OVERLOAD
-      puts '系統過載G_G'
-      sleep 1
-      next
+f = true
+while f
+   while true
+      ptt = PTT.new
+      if ptt.connect! == PTT::OVERLOAD
+         puts '系統過載G_G'
+         sleep 1
+         next
+      end
+      break
    end
-   break
-end
 
-print '帳號: '
-account = gets.chomp
-print "密碼: \e[30m"
-password = gets.chomp
-print "\e[m"
+   print '帳號: '
+   account = gets.chomp
+   print "密碼: \e[30m"
+   password = gets.chomp
+   print "\e[m"
 
-case ptt.login! account, password
-when PTT::OVERLOAD
-   puts '系統過載G_G'
-   exit
-when PTT::LOGIN_FAIL
-   puts '打錯囉你看看你'
-   exit
-when PTT::OTHER_ONLINE
-   print '刪除其他登入？[Y/n]: '
-   del = gets[0]
-   ptt.del_other !(del == 'n' || del == 'N')
+   case ptt.login! account, password
+   when PTT::OVERLOAD
+      puts '系統過載G_G'
+   when PTT::LOGIN_FAIL
+      puts '打錯囉你看看你'
+   when PTT::OTHER_ONLINE
+      print '刪除其他登入？[Y/n]: '
+      del = gets[0]
+      ptt.del_other !(del == 'n' || del == 'N')
+      f = false
+   else
+      f = false
+   end
 end
 
 favorites = ptt.favorites
