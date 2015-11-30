@@ -159,13 +159,17 @@ class PTT
             @ptt.print 'Q'
             waitfor '#'
             if @row > 14
-               post.id = @terminal[@row - 4][18..26]
-               post.url = @terminal[@row - 3][13..74]
-               post.pttcoin = @terminal[@row - 2][16..24].to_i
+               post.merge!({
+                  id: @terminal[@row - 4][18..26],
+                  url: @terminal[@row - 3][13..74],
+                  pttcoin: @terminal[@row - 2][16..24].to_i
+               })
             else
-               post.id = @terminal[@row + 2][18..26]
-               post.url = @terminal[@row + 3][13..74]
-               post.pttcoin = @terminal[@row + 4][16..24].to_i
+               post.merge!({
+                  id: @terminal[@row + 2][18..26],
+                  url: @terminal[@row + 3][13..74],
+                  pttcoin: @terminal[@row + 4][16..24].to_i
+               })
             end
             @ptt.print "\e[C"
             waitfor '進板畫面'
