@@ -1,6 +1,6 @@
 # Graptt
 ## Introduction
-In order to make browsing PTT ([telnet://ptt.cc](telnet://ptt.cc)) easier with simple HTTP requests,
+In order to make browsing PTT (telnet://ptt.cc) easier with simple HTTP requests,  
 I made this to convert telnet to APIs by Ruby Grape.
 ## Installation
 First, clone it from github.
