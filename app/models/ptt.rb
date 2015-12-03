@@ -214,7 +214,7 @@ class PTT
       return ERROR unless @status == IN_BOARD
       return NOT_FOUND if post_id.nil? || ! post_id.match(/^\#[a-zA-Z\d\.\-_]*$/)
       @ptt.puts post_id
-      waitfor '不到這個文|●'
+      waitfor '不到這個文| '
       if @terminal[22].match telcode '不到這個文'
          @ptt.print 'q'
          waitfor '.*'
