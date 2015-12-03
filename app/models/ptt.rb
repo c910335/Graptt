@@ -152,9 +152,9 @@ class PTT
 
    def list_posts
       return ERROR unless @status == IN_BOARD
-      @ptt.print "\e[4~"
-      waitfor '.*'
-      @ptt.print "\e[B"
+      @ptt.print "\e[A"
+      waitfor '●'
+      @ptt.print "\e[4~\e[B"
       waitfor '●'
       unless @last_post.nil?
          @ptt.print @last_post + "\n\e[A"
@@ -167,6 +167,7 @@ class PTT
       end
       posts = []
       row = @terminal.row
+      puts row
       while true
          post = Post.new({
             num: @terminal[row][2..6].to_i,
