@@ -33,7 +33,7 @@ class PTT
 
    def connect!
       @ptt = Net::Telnet.new({'Host' => 'ptt.cc', 'Port' => 443})
-      waitfor '(new 註冊:|系統過載)'
+      waitfor 'new 註冊:|系統過載'
       if @terminal[13].match telcode '系統過載'
          close!
          return OVERLOAD
@@ -45,27 +45,29 @@ class PTT
    def login! account, password
       return ERROR if @status != CONNECTED
       @ptt.puts ' ' + account
-      waitfor '(密碼)|(沒有這個)|(重新輸入)'
-      if @terminal[21].match telcode '(沒有這個)|(重新輸入)'
+      waitfor '密碼|沒有這個|重新輸入'
+      if @terminal[21].match telcode '沒有這個|重新輸入'
          close!
          return LOGIN_FAIL
       end
       @ptt.puts password
-      waitfor '(連往本站。)|(您想刪除其他重複登入的連線嗎？)|(系統過載)|(刪除以上錯誤嘗試)'
+      waitfor '連往本站。|您想刪除其他重複登入的連線嗎？|系統過載|重新輸入|密碼不對'
       if @terminal[22].match telcode '您想刪除其他重複登入的連線嗎？'
          @status = TO_DEL_OTHER
          return OTHER_ONLINE
+      elsif @terminal[21].match telcode '密碼不對|重新輸入'
+         close!
+         return LOGIN_FAIL
       elsif @terminal[22].match telcode '系統過載'
          close!
          return OVERLOAD
-      elsif @terminal[22].match telcode '密碼不對'
-         close!
-         return LOGIN_FAIL
-      elsif @terminal[23].match telcode '刪除以上錯誤嘗試'
-         @ptt.puts 'Y'
       end
       @ptt.print 'q'
-      waitfor '離開，再見'
+      waitfor '離開，再見|刪除以上'
+      if @terminal[23].match telcode '刪除以上'
+         @ptt.puts 'Y'
+         waitfor '離開，再見'
+      end
       @status = MAIN_MENU
       OK
    end
@@ -85,14 +87,18 @@ class PTT
       end
       waitfor '連往本站。'
       @ptt.print 'q'
-      waitfor '離開，再見'
+      waitfor '離開，再見|刪除以上'
+      if @terminal[23].match telcode '刪除以上'
+         @ptt.puts 'Y'
+         waitfor '離開，再見'
+      end
       @status = MAIN_MENU
       OK
    end
 
    def favorites
       return ERROR if @status != MAIN_MENU && @status != IN_BOARD
-      @ptt.puts 'qqqqqqqqqqf'
+      @ptt.print "qqqqqqqqqqf\n\e[1~"
       waitfor '[A-Za-z]'
       next_page = true
       boards = []
@@ -128,15 +134,15 @@ class PTT
       return ERROR if @status != MAIN_MENU && @status != IN_BOARD
       board = board.en_name if board.kind_of? Board
       @ptt.puts 'qqqqqqqqqqs' + board
-      sleep 1
-      waitfor '.*'
+      waitfor '呼叫器|任意鍵繼|標題/作'
       if @terminal[23].match telcode '呼叫器'
          return NOT_FOUND
       elsif @terminal[23].match telcode '任意鍵繼'
          @ptt.puts ''
-         waitfor '進板畫面'
+         waitfor '標題/作'
       end
       @ptt.print "\e[1~\e[4~"
+      waitfor '.*'
       @row = 22
       @status = IN_BOARD
       OK
