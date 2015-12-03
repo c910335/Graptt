@@ -43,7 +43,7 @@ class PTT
    end
 
    def login! account, password
-      return ERROR if @status != CONNECTED
+      return ERROR unless @status == CONNECTED
       @ptt.puts ' ' + account
       waitfor '密碼|沒有這個|重新輸入'
       if @terminal[21].match telcode '沒有這個|重新輸入'
@@ -79,7 +79,7 @@ class PTT
    end
 
    def del_other d = true
-      return ERROR if @status != TO_DEL_OTHER
+      return ERROR unless @status == TO_DEL_OTHER
       if d
          @ptt.puts 'Y'
       else
@@ -97,9 +97,9 @@ class PTT
    end
 
    def favorites
-      return ERROR if @status != MAIN_MENU && @status != IN_BOARD
+      return ERROR unless @status == MAIN_MENU || @status == IN_BOARD
       @ptt.print "qqqqqqqqqqf\n\e[1~"
-      waitfor '[A-Za-z]'
+      waitfor '入已知板'
       next_page = true
       boards = []
       while next_page
@@ -131,7 +131,8 @@ class PTT
    end
 
    def enter! board
-      return ERROR if @status != MAIN_MENU && @status != IN_BOARD
+      return ERROR unless @status == MAIN_MENU || @status == IN_BOARD
+      return NOT_FOUND unless board.match /^[a-zA-Z\d\-_\.]*$/
       board = board.en_name if board.kind_of? Board
       @ptt.puts 'qqqqqqqqqqs' + board
       waitfor '呼叫器|任意鍵繼|標題/作'
@@ -141,56 +142,87 @@ class PTT
          @ptt.puts ''
          waitfor '標題/作'
       end
-      @ptt.print "\e[1~\e[4~"
-      waitfor '.*'
-      @row = 22
+      @terminal[0].match telcode '看板《(.*)》$' do |match_data|
+         board = match_data[1]
+      end
+      @last_post = nil
       @status = IN_BOARD
-      OK
+      board
    end
 
    def list_posts
-      return ERROR if @status != IN_BOARD
+      return ERROR unless @status == IN_BOARD
+      @ptt.print "\e[4~"
+      waitfor '.*'
+      @ptt.print "\e[B"
+      waitfor '●'
+      unless @last_post.nil?
+         @ptt.print @last_post + "\n\e[A"
+         waitfor '●'
+         @post_shift.times do
+            @ptt.print "\e[A"
+            waitfor '●'
+         end
+         puts @last_post + ' ' + @post_shift.to_s
+      end
       posts = []
+      row = @terminal.row
       while true
          post = Post.new({
-            num: @terminal[@row][2..6].to_i,
-            author: @terminal[@row][17..28],
-            title: @terminal[@row][33..78],
-            date: @terminal[@row][11..15],
-            status: @terminal[@row][8],
-            like: @terminal[@row][9..10],
-            source: @terminal[@row][30..31]
+            num: @terminal[row][2..6].to_i,
+            author: @terminal[row][17..28],
+            title: @terminal[row][33..78],
+            date: @terminal[row][11..15],
+            status: @terminal[row][8],
+            like: @terminal[row][9..10],
+            source: @terminal[row][30..31]
          })
-         if @terminal[@row][17] != '-' && @terminal[@row][18] != ' '
+         if @terminal[row][17] != '-' && @terminal[row][18] != ' '
             @ptt.print 'Q'
             waitfor '#'
-            if @row > 14
+            if row > 14
                post.merge!({
-                  id: @terminal[@row - 4][18..26],
-                  url: @terminal[@row - 3][13..74],
-                  pttcoin: @terminal[@row - 2][16..24].to_i
+                  id: @terminal[row - 4][18..26],
+                  url: @terminal[row - 3][13..74],
+                  pttcoin: @terminal[row - 2][16..24].to_i
                })
             else
                post.merge!({
-                  id: @terminal[@row + 2][18..26],
-                  url: @terminal[@row + 3][13..74],
-                  pttcoin: @terminal[@row + 4][16..24].to_i
+                  id: @terminal[row + 2][18..26],
+                  url: @terminal[row + 3][13..74],
+                  pttcoin: @terminal[row + 4][16..24].to_i
                })
             end
+            @last_post = post.id
+            @post_shift = 0
             @ptt.print "\e[C"
             waitfor '進板畫面'
+         else
+            @post_shift += 1
          end
          posts << post
          @ptt.print "\e[A"
-         @row -= 1
-         if @row <= 2
-            sleep 1
-            waitfor '.*'
-            @row = 21
-            break
-         end
+         waitfor '●'
+         row -= 1
+         break if row <= 2
       end
       posts
+   end
+
+   def read! post_id
+      return ERROR unless @status == IN_BOARD
+      return NOT_FOUND if post_id.nil? || ! post_id.match(/^\#[a-zA-Z\d\.\-_]*$/)
+      @ptt.puts post_id
+      waitfor '不到這個文|●'
+      if @terminal[22].match telcode '不到這個文'
+         @ptt.print 'q'
+         waitfor '.*'
+         NOT_FOUND
+      else
+         @ptt.print "\e[C\e[D"
+         waitfor '.*'
+         OK
+      end
    end
 
    def waitfor string

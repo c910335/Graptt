@@ -1,5 +1,5 @@
 class Terminal
-   attr_reader :width, :height, :content, :color
+   attr_reader :width, :height, :content, :color, :row, :column
 
    def initialize width = 80, height = 24, in_encode = 'big5-uao', out_encode = 'utf-8'
       @width = width

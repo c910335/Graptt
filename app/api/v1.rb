@@ -86,13 +86,14 @@ module Graptt
       put :enter do
          error! 'Connection Not Found', 404 unless ptts.has_key? params[:token]
          ptt = ptts[params[:token]]
-         case ptt.enter! params[:board]
+         board = ptt.enter! params[:board]
+         case board
          when PTT::ERROR
             error! 'Bad Request', 400
          when PTT::NOT_FOUND
             error! 'Board Not Found', 404
          end
-         {status: 'In Board'}
+         {status: 'In Board', board: board}
       end
 
       desc 'Get the Posts of the Next Page in Currently Board' do
@@ -108,6 +109,20 @@ module Graptt
          error! 'Bad Request', 400 if posts == PTT::ERROR
          posts.each_index { |i| posts[i] = posts[i].to_hash }
          {status: 'In Board', posts: posts}
+      end
+
+      desc 'Set the Specific Post Read' do
+         failure [[404, 'Connection Not Found'], [404], 'Post Not Found']
+      end
+      params do
+         requires :token, type: String, desc: 'token which returned when connect'
+         requires :id, type: String, desc: 'id of the post to set read'
+      end
+      put :read do
+         error! 'Connection Not Found', 404 unless ptts.has_key? params[:token]
+         ptt = ptts[params[:token]]
+         error! 'Post Not Found', 404 if ptt.read!(params[:id]) == PTT::NOT_FOUND
+         {status: 'In Board'}
       end
 
       desc 'Close the Connection' do
