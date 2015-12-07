@@ -74,6 +74,8 @@ class Terminal
                next_line
             when "\b"
                back
+            when "\a"
+               next
             else
                set char
             end

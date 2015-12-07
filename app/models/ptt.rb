@@ -153,21 +153,20 @@ class PTT
    def list_posts
       return ERROR unless @status == IN_BOARD
       @ptt.print "\e[A"
-      waitfor '●'
+      waitfor '●|>'
       @ptt.print "\e[4~\e[B"
-      waitfor '●'
+      waitfor '●|>'
       unless @last_post.nil?
          @ptt.print @last_post + "\n\e[A"
-         waitfor '●'
+         waitfor '●|>'
          @post_shift.times do
             @ptt.print "\e[A"
-            waitfor '●'
+            waitfor '●|>'
          end
          puts @last_post + ' ' + @post_shift.to_s
       end
       posts = []
       row = @terminal.row
-      puts row
       while true
          post = Post.new({
             num: @terminal[row][2..6].to_i,
@@ -203,7 +202,7 @@ class PTT
          end
          posts << post
          @ptt.print "\e[A"
-         waitfor '●'
+         waitfor '●|>'
          row -= 1
          break if row <= 2
       end
