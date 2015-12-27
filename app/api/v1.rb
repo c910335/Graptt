@@ -11,7 +11,7 @@ module Graptt
       desc 'Connect to PTT' do
          failure [[503, 'Overload']]
       end
-      post :connect do
+      post :connection do
          ptt = PTT.new
          error! 'Overload', 503 if ptt.connect! == PTT::OVERLOAD
          token = SecureRandom.hex
@@ -25,7 +25,7 @@ module Graptt
       params do
          requires :account, type: String, desc: 'PTT account'
          requires :password, type: String, desc: 'PTT password'
-         requires :token, type: String, desc: 'token which returned when connect'
+         requires :token, type: String, desc: 'token which returned when connected'
       end
       put :login do
          error! 'Connection Not Found', 404 unless ptts.has_key? params[:token]
@@ -51,8 +51,8 @@ module Graptt
          failure [[404, 'Connection Not Found'], [400, 'Bad Request']]
       end
       params do
-         optional :del, type: Boolean, default: 'true', desc: 'True if del the others'
-         requires :token, type: String, desc: 'token which returned when connect'
+         optional :del, type: Boolean, default: 'true', desc: 'true if del the others'
+         requires :token, type: String, desc: 'token which returned when connected'
       end
       delete :other do
          error! 'Connection Not Found', 404 unless ptts.has_key? params[:token]
@@ -61,46 +61,51 @@ module Graptt
          {status: 'Main Menu'}
       end
 
-      desc 'Get the Favorites Boards' do
+      desc 'Get Boards' do
          failure [[404, 'Connection Not Found'], [400, 'Bad Request']]
       end
       params do
-         requires :token, type: String, desc: 'token which returned when connect'
+         optional :favorite, type: Boolean, default: true, desc: 'true to get favorite boards'
+         requires :token, type: String, desc: 'token which returned when connected'
       end
-      get :favorites do
+      get :boards do
          error! 'Connection Not Found', 404 unless ptts.has_key? params[:token]
          ptt = ptts[params[:token]]
-         favorites = ptt.favorites
-         error! 'Bad Request', 400 if favorites == PTT::ERROR
-         favorites.each_index { |i| favorites[i] = favorites[i].to_hash }
-         {status: 'Main Menu', favorites: favorites}
+         if params[:favorite]
+            boards = ptt.favorites
+         else
+            error! 'Not Implemented', 501
+         end
+         error! 'Bad Request', 400 if boards == PTT::ERROR
+         boards.each_index { |i| boards[i] = boards[i].to_hash }
+         {status: 'Main Menu', boards: boards}
       end
 
       desc 'Enter a Specific Board' do
          failure [[404, 'Connection Not Found'], [400, 'Bad Request'], [404, 'Board Not Found']]
       end
       params do
-         requires :board, type: String, desc: 'en_name of the board to enter'
-         requires :token, type: String, desc: 'token which returned when connect'
+         requires :name, type: String, desc: 'en_name of the board to enter'
+         requires :token, type: String, desc: 'token which returned when connected'
       end
-      put :enter do
+      put :board do
          error! 'Connection Not Found', 404 unless ptts.has_key? params[:token]
          ptt = ptts[params[:token]]
-         board = ptt.enter! params[:board]
-         case board
+         name = ptt.enter! params[:name]
+         case name
          when PTT::ERROR
             error! 'Bad Request', 400
          when PTT::NOT_FOUND
             error! 'Board Not Found', 404
          end
-         {status: 'In Board', board: board}
+         {status: 'In Board', name: name}
       end
 
       desc 'Get the Posts of the Next Page in Currently Board' do
          failure [[404, 'Connection Not Found'], [400, 'Bad Request']]
       end
       params do
-         requires :token, type: String, desc: 'token which returned when connect'
+         requires :token, type: String, desc: 'token which returned when connected'
       end
       get :posts do
          error! 'Connection Not Found', 404 unless ptts.has_key? params[:token]
@@ -111,17 +116,80 @@ module Graptt
          {status: 'In Board', posts: posts}
       end
 
-      desc 'Set the Specific Post Read' do
-         failure [[404, 'Connection Not Found'], [404], 'Post Not Found']
+      resource :post do
+
+         desc 'Create a New Post' do
+            failure [[404, 'Connection Not Found'], [400, 'Bad Request']]
+         end
+         params do
+            requires :token, type: String, desc: 'token which returned when connected'
+            requires :title, type: String, desc: 'title of the post'
+            requires :content, type: String, desc: 'content of the post'
+         end
+         post do
+            error! 'Connection Not Found', 404 unless ptts.has_key? params[:token]
+            ptt = ptts[params[:token]]
+            error! 'Bad Request', 400 if ptt.post!(params[:title], params[:content]) == PTT::ERROR
+            {status: 'In Board'}
+         end
+
+         desc 'Return the Specific Post' do
+            detail 'no id provided for read more'
+            failure [[404, 'Connection Not Found'], [404, 'Post Not Found'], [400, 'Bad Request']]
+         end
+         params do
+            requires :token, type: String, desc: 'token which returned when connected'
+            optional :id, type: String, desc: 'id of the post'
+         end
+         get do
+            error! 'Connection Not Found', 404 unless ptts.has_key? params[:token]
+            ptt = ptts[params[:token]]
+            if params[:id].nil?
+               post = ptt.post
+            else
+               post = ptt.post params[:id]
+            end
+            error! 'Post Not Found', 404 if post == PTT::NOT_FOUND
+            error! 'Bad Request', 400 if post == PTT::ERROR
+            {status: 'In Post', post: post.to_hash}
+         end
+
+         desc 'Set the Specific Post Read' do
+            failure [[404, 'Connection Not Found'], [404, 'Post Not Found'], [400, 'Bad Request']]
+         end
+         params do
+            requires :token, type: String, desc: 'token which returned when connected'
+            requires :id, type: String, desc: 'id of the post to set read'
+            optional :read, type: Boolean, default: true, desc: 'true if set the post read'
+         end
+         put do
+            error! 'Connection Not Found', 404 unless ptts.has_key? params[:token]
+            ptt = ptts[params[:token]]
+            if params[:read]
+               status = ptt.read! params[:id]
+               error! 'Post Not Found', 404 if status == PTT::NOT_FOUND
+               error! 'Bad Request', 400 if status == PTT::ERROR
+            else
+               error! 'Not Implemented', 501
+            end
+            {status: 'In Board'}
+         end
+
+      end
+
+      desc 'Push the Specific Post' do
+         failure [[404, 'Connection Not Found'], [404, 'Post Not Found'], [400, 'Bad Request']]
       end
       params do
-         requires :token, type: String, desc: 'token which returned when connect'
-         requires :id, type: String, desc: 'id of the post to set read'
+         requires :token, type: String, desc: 'token which returned when connected'
+         requires :id, type: String, desc: 'id of the post to push'
+         requires :tag, type: Integer, values: [1, 2, 3], desc: '1 to push, 2 to boo or 3 for arrow'
+         requires :content, type: String, desc: 'content of the push'
       end
-      put :read do
+      post :push do
          error! 'Connection Not Found', 404 unless ptts.has_key? params[:token]
          ptt = ptts[params[:token]]
-         error! 'Post Not Found', 404 if ptt.read!(params[:id]) == PTT::NOT_FOUND
+         error! 'Post Not Found', 404 if ptt.push!(params[:id], params[:tag], params[:content]) == PTT::ERROR
          {status: 'In Board'}
       end
 
@@ -129,9 +197,9 @@ module Graptt
          failure [[404, 'Connection Not Found']]
       end
       params do
-         requires :token, type: String, desc: 'token which returned when connect'
+         requires :token, type: String, desc: 'token which returned when connected'
       end
-      delete :connect do
+      delete :connection do
          error! 'Connection Not Found', 404 unless ptts.has_key? params[:token]
          ptt = ptts[params[:token]]
          ptt.close!

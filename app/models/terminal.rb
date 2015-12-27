@@ -17,7 +17,7 @@ class Terminal
 
    def to_s
       s = ''
-      @content.each {|i| s << String.new(i).force_encoding(@in_encode).encode('utf-8', invalid: :replace, undef: :replace) + "\n"}
+      @content.each {|i| s << String.new(i).force_encoding(@in_encode).encode(@out_encode, invalid: :replace, undef: :replace) + "\n"}
       s
    end
 
