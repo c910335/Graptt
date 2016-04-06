@@ -5,26 +5,14 @@ require './app/models/post'
 require './app/models/article'
 
 class PTT
-   OK = 0
-   ERROR = 1
-   OVERLOAD = 2
-   LOGIN_FAIL = 3
-   OTHER_ONLINE = 4
-   NOT_FOUND = 5
 
-   NOT_CONNECT = 10
-   CONNECTED = 11
-   TO_DEL_OTHER = 12
-   MAIN_MENU = 13
-   IN_BOARD = 14
-   IN_POST = 15
-   IN_PTT = [MAIN_MENU, IN_BOARD, IN_POST]
+   IN_PTT = [:main_menu, :in_board, :in_post]
 
    attr_reader :status
 
    def initialize
       @terminal = Terminal.new
-      @status = NOT_CONNECT
+      @status = :not_connect
    end
 
    def connect!
@@ -32,31 +20,31 @@ class PTT
       waitfor 'new 註冊:|系統過載'
       if @terminal[13].match '系統過載'.telcode
          close!
-         return OVERLOAD
+         return :overload
       end
-      @status = CONNECTED
-      OK
+      @status = :connected
+      :ok
    end
 
    def login! account, password
-      return ERROR unless @status == CONNECTED
+      return :error unless @status == :connected
       @ptt.puts ' ' + account
       waitfor '密碼|沒有這個|重新輸入'
       if @terminal[21].match '沒有這個|重新輸入'.telcode
          close!
-         return LOGIN_FAIL
+         return :login_fail
       end
       @ptt.puts password
       waitfor '連往本站。|您想刪除其他重複登入的連線嗎？|系統過載|重新輸入|密碼不對'
       if @terminal[22].match '您想刪除其他重複登入的連線嗎？'.telcode
-         @status = TO_DEL_OTHER
-         return OTHER_ONLINE
+         @status = :to_del_other
+         return :other_online
       elsif @terminal[21].match '密碼不對|重新輸入'.telcode
          close!
-         return LOGIN_FAIL
+         return :login_fail
       elsif @terminal[22].match '系統過載'.telcode
          close!
-         return OVERLOAD
+         return :overload
       end
       @ptt.print 'q'
       waitfor '離開，再見|刪除以上|文章尚未'
@@ -64,21 +52,21 @@ class PTT
          @ptt.puts 'Y'
          waitfor '離開，再見'
       elsif @terminal[1].match '文章尚未'.telcode
-         @ptt.pust 'Q'
+         @ptt.puts 'Q'
          waitfor '離開，再見'
       end
-      @status = MAIN_MENU
-      OK
+      @status = :main_menu
+      :ok
    end
 
    def close!
       @ptt.close
-      @status = NOT_CONNECT
-      OK
+      @status = :not_connect
+      :ok
    end
 
    def del_other d = true
-      return ERROR unless @status == TO_DEL_OTHER
+      return :error unless @status == :to_del_other
       if d
          @ptt.puts 'Y'
       else
@@ -91,17 +79,17 @@ class PTT
          @ptt.puts 'Y'
          waitfor '離開，再見'
       end
-      @status = MAIN_MENU
-      OK
+      @status = :main_menu
+      :ok
    end
 
    def favorites
-      return ERROR unless IN_PTT.include? @status
+      return :error unless IN_PTT.include? @status
       @ptt.print "qqqqqqqqqqf\n\e[1~"
       waitfor '入已知板'
       next_page = true
       boards = []
-      while next_page
+      loop do
          @terminal[3..22].each do |row|
             if row[6] == ' '
                next_page = false
@@ -116,8 +104,9 @@ class PTT
                unread: row[8..9] != '  '
             })
          end
+         break unless next_page
          @ptt.print "\e[6~"
-         waitfor '[A-Za-z]'
+         waitfor '[A-Za-z_>●]'
          if @terminal[3][0] == ' '
             next_page = false
             break
@@ -125,25 +114,25 @@ class PTT
       end
       @ptt.print 'q'
       waitfor '離開，再見'
-      @status = MAIN_MENU
+      @status = :main_menu
       boards
    end
 
    def enter! board
-      return ERROR unless IN_PTT.include? @status
-      return NOT_FOUND unless board.match /^[a-zA-Z\d\-_\.]*$/
+      return :error unless IN_PTT.include? @status
+      return :not_found unless board.match /^[a-zA-Z\d\-_\.]*$/
       board = board.en_name if board.kind_of? Board
-      if @status == IN_BOARD
+      if @status == :in_board
          @ptt.print 'qqqqqqqq'
          waitfor '呼叫器'
       end
-      @status = MAIN_MENU
+      @status = :main_menu
       @ptt.print 's' + board + ' '
       waitfor '.*'
       @ptt.puts ''
       waitfor '呼叫器|任意鍵繼|標題/作|動畫播放中'
       if @terminal[23].match '呼叫器'.telcode
-         return NOT_FOUND
+         return :not_found
       elsif @terminal[23].match '動畫播放中'.telcode
          waitfor '任意鍵繼'
          @ptt.puts ''
@@ -156,13 +145,13 @@ class PTT
          board = match_data[1]
       end
       @last_post = nil
-      @status = IN_BOARD
+      @status = :in_board
       board
    end
 
    def list_posts
       leave_post
-      return ERROR unless @status == IN_BOARD
+      return :error unless @status == :in_board
       @ptt.print "\e[A"
       waitfor '●|>'
       @ptt.print "\e[4~\e[B"
@@ -221,32 +210,32 @@ class PTT
 
    def read! post_id
       leave_post
-      return ERROR unless @status == IN_BOARD
-      return NOT_FOUND if post_id.nil? || ! post_id.match(/^\#[a-zA-Z\d\.\-_]*$/)
+      return :error unless @status == :in_board
+      return :not_found if post_id.nil? || ! post_id.match(/^\#[a-zA-Z\d\.\-_]*$/)
       @ptt.puts post_id
       waitfor '不到這個文| '
       if @terminal[22].match '不到這個文'.telcode
          @ptt.print 'q'
          waitfor '.*'
-         NOT_FOUND
+         :not_found
       else
          @ptt.print "\e[C\e[D"
          waitfor '.*'
-         OK
+         :ok
       end
    end
 
    def post post_id = nil
       if post_id
          leave_post
-         return ERROR unless @status == IN_BOARD
-         return NOT_FOUND if post_id.nil? || ! post_id.match(/^\#[a-zA-Z\d\.\-_]*$/)
+         return :error unless @status == :in_board
+         return :not_found if post_id.nil? || ! post_id.match(/^\#[a-zA-Z\d\.\-_]*$/)
          @ptt.puts post_id
          waitfor "\e.*H"
          if @terminal[22].match '不到這個文'.telcode
             @ptt.print 'q'
             waitfor '.*'
-            return NOT_FOUND
+            return :not_found
          else
             row = @terminal.row
             @article = Article.new({
@@ -294,9 +283,9 @@ class PTT
                @article.strip
             end
          end
-         @status = IN_POST
+         @status = :in_post
       end
-      return ERROR unless @status == IN_POST
+      return :error unless @status == :in_post
       @article.content = [] if post_id.nil?
       return @article if @article.end
       100.times do
@@ -309,12 +298,12 @@ class PTT
          waitfor '\d'
          @article.push_content @terminal[22]
       end
-      @status = IN_POST
+      @status = :in_post
       return @article
    end
 
    def post! title, content
-      return ERROR unless @status == IN_BOARD
+      return :error unless @status == :in_board
       @ptt.print "\C-p"
       waitfor '種類'
       @ptt.puts ""
@@ -329,14 +318,14 @@ class PTT
 
    def push! post_id, push_tag, content
       leave_post
-      return ERROR unless @status == IN_BOARD
-      return NOT_FOUND if post_id.nil? || ! post_id.match(/^\#[a-zA-Z\d\.\-_]*$/)
+      return :error unless @status == :in_board
+      return :not_found if post_id.nil? || ! post_id.match(/^\#[a-zA-Z\d\.\-_]*$/)
       @ptt.puts post_id
       waitfor "\e.*H"
       if @terminal[22].match '不到這個文'.telcode
          @ptt.print 'q'
          waitfor '.*'
-         NOT_FOUND
+         :not_found
       else
          @ptt.print 'X'
          waitfor '\d|→'
@@ -348,15 +337,15 @@ class PTT
          waitfor '確定'
          @ptt.puts 'y'
          waitfor '.*'
-         OK
+         :ok
       end
    end
 
    def leave_post
-      if @status == IN_POST
+      if @status == :in_post
          @ptt.print "\e[D"
          waitfor '●|>'
-         @status = IN_BOARD
+         @status = :in_board
       end
    end
 
